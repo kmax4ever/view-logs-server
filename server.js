@@ -28,7 +28,7 @@ app.get("/pm2/list", (req, res) => {
 app.get("/viewLogs", (req, res) => {
   const appName = req.query.name;
   if (!appName) return res.status(400).send("Thiếu tên ứng dụng");
-  const logPath = "/.pm2/logs/" + appName + "-out.log";
+  const logPath = "/root/.pm2/logs" + appName + "-out.log";
 
   if (!fs.existsSync(logPath)) {
     return res.status(404).send(`Không tìm thấy log cho app "${appName}"`);
