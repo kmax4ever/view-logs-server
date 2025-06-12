@@ -2,7 +2,7 @@ const express = require("express");
 const pm2 = require("pm2");
 
 const app = express();
-const PORT = 9999;
+const PORT = 3001;
 
 app.get("/pm2/list", (req, res) => {
   pm2.connect((err) => {
