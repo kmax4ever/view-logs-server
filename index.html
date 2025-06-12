@@ -11,7 +11,8 @@
             padding: 20px;
         }
 
-        button {
+        button,
+        select {
             padding: 10px 20px;
             font-size: 16px;
             margin-right: 10px;
@@ -33,35 +34,50 @@
 
 <body>
 
-    <h1>🚀 Deploy Dashboard</h1>
-    <button onclick="viewLog()">▶ Bắt đầu Deploy</button>
+    <h1>🚀 PM2 Log Viewer</h1>
+
+    <select id="appList">
+        <option disabled selected>🔍 Đang tải danh sách ứng dụng...</option>
+    </select>
+    <button onclick="viewLog()">▶ Xem Log</button>
 
     <div id="log">[Log sẽ hiển thị ở đây]</div>
 
     <script>
-        async function streamLog(url) {
-            const logDiv = document.getElementById("log");
-            const response = await fetch(url);
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
+        async function loadAppList() {
+            const select = document.getElementById("appList");
+            try {
+                const res = await fetch("/pm2/list");
+                const apps = await res.json();
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+                select.innerHTML = ""; // Clear existing options
 
-                logDiv.textContent += decoder.decode(value);
-                logDiv.scrollTop = logDiv.scrollHeight;
+                apps.forEach(app => {
+                    const opt = document.createElement("option");
+                    opt.value = app.name;
+                    opt.textContent = `${app.name} (ID: ${app.pm_id})`;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                select.innerHTML = '<option disabled>⚠️ Lỗi khi tải danh sách ứng dụng</option>';
             }
         }
 
         async function viewLog() {
             const logDiv = document.getElementById("log");
-            logDiv.textContent = "📡 Gửi yêu cầu deploy...\n";
+            const appName = document.getElementById("appList").value;
+
+            if (!appName) {
+                logDiv.textContent = "⚠️ Vui lòng chọn một ứng dụng.\n";
+                return;
+            }
+
+            logDiv.textContent = `📡 Đang tải log của "${appName}"...\n`;
 
             try {
-                const res = await fetch("/viewLogs");
+                const res = await fetch(`/viewLogs?name=${encodeURIComponent(appName)}`);
                 if (!res.ok) {
-                    logDiv.textContent += "❌ Deploy bị từ chối hoặc đang chạy.\n";
+                    logDiv.textContent += "❌ Không thể lấy log.\n";
                     return;
                 }
 
@@ -76,13 +92,14 @@
                     logDiv.scrollTop = logDiv.scrollHeight;
                 }
 
-                logDiv.textContent += "\n✅ Quá trình hoàn tất.\n";
-
+                logDiv.textContent += "\n✅ Hoàn tất.\n";
             } catch (err) {
                 logDiv.textContent += "❌ Lỗi: " + err.message + "\n";
             }
         }
 
+        // Gọi ngay khi tải trang
+        loadAppList();
     </script>
 
 </body>
