@@ -30,6 +30,12 @@
             font-family: monospace;
             border: 1px solid #ccc;
         }
+
+        mark {
+            background: yellow;
+            color: black;
+            padding: 0 2px;
+        }
     </style>
 </head>
 
@@ -37,23 +43,26 @@
 
     <h1>🚀 PM2 Log Viewer</h1>
 
-    <input type="text" id="searchInput" placeholder="🔍 Tìm ứng dụng..." oninput="filterAppList()" />
     <select id="appList">
         <option disabled selected>🔍 Đang tải danh sách ứng dụng...</option>
     </select>
     <button onclick="viewLog()">▶ Xem Log</button>
 
+    <br />
+
+    <input type="text" id="logSearch" placeholder="🔎 Tìm trong log..." oninput="highlightLog()" />
+
     <div id="log">[Log sẽ hiển thị ở đây]</div>
 
     <script>
-        let allApps = []; // lưu toàn bộ danh sách app để filter
+        let allApps = [];
+        let rawLogText = "";
 
         async function loadAppList() {
             const select = document.getElementById("appList");
             try {
                 const res = await fetch("/pm2/list");
                 const apps = await res.json();
-
                 allApps = apps;
                 renderAppList(apps);
             } catch (err) {
@@ -72,12 +81,6 @@
             });
         }
 
-        function filterAppList() {
-            const keyword = document.getElementById("searchInput").value.toLowerCase();
-            const filtered = allApps.filter(app => app.name.toLowerCase().includes(keyword));
-            renderAppList(filtered);
-        }
-
         async function viewLog() {
             const logDiv = document.getElementById("log");
             const appName = document.getElementById("appList").value;
@@ -88,6 +91,7 @@
             }
 
             logDiv.textContent = `📡 Đang tải log của "${appName}"...\n`;
+            rawLogText = "";
 
             try {
                 const res = await fetch(`/viewLogs?name=${encodeURIComponent(appName)}`);
@@ -100,9 +104,7 @@
                 const decoder = new TextDecoder();
 
                 let userScrolled = false;
-
                 logDiv.addEventListener('scroll', () => {
-                    // Nếu người dùng kéo lên (không ở cuối), thì tạm ngắt auto-scroll
                     const threshold = 50;
                     userScrolled = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight > threshold;
                 });
@@ -111,18 +113,58 @@
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    logDiv.textContent += decoder.decode(value);
+                    const chunk = decoder.decode(value);
+                    rawLogText += chunk;
 
-                    // Chỉ auto-scroll nếu người dùng chưa kéo lên
+                    highlightLog();
+
                     if (!userScrolled) {
                         logDiv.scrollTop = logDiv.scrollHeight;
                     }
                 }
 
-                logDiv.textContent += "\n✅ Hoàn tất.\n";
+                rawLogText += "\n✅ Hoàn tất.\n";
+                highlightLog();
+
             } catch (err) {
                 logDiv.textContent += "❌ Lỗi: " + err.message + "\n";
             }
+        }
+
+        function highlightLog() {
+            const keyword = document.getElementById("logSearch").value.trim();
+            const logDiv = document.getElementById("log");
+
+            if (!keyword) {
+                logDiv.innerHTML = escapeHtml(rawLogText);
+                return;
+            }
+
+            const regex = new RegExp(`(${escapeRegex(keyword)})`, 'gi');
+            const highlighted = rawLogText.replace(regex, '<mark>$1</mark>');
+            logDiv.innerHTML = escapeHtmlExceptMark(highlighted);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, function (m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[m];
+            });
+        }
+
+        function escapeHtmlExceptMark(str) {
+            return escapeHtml(str)
+                .replace(/&lt;mark&gt;/g, '<mark>')
+                .replace(/&lt;\/mark&gt;/g, '</mark>');
+        }
+
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         loadAppList();
