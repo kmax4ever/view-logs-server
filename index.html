@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8" />
@@ -68,19 +68,19 @@
 
     <div class="toolbar">
         <select id="appList" onchange="showStatus()">
-            <option disabled selected>🔍 Đang tải danh sách ứng dụng...</option>
+            <option disabled selected>🔍 Loading application list...</option>
         </select>
-        <span id="statusBadge">📄 Chưa chọn</span>
-        <button onclick="viewLog()">▶ Xem Log</button>
-        <button onclick="stopApp()">🛑 Dừng</button>
+        <span id="statusBadge">📄 Not selected</span>
+        <button onclick="viewLog()">▶ View Log</button>
+        <button onclick="stopApp()">🛑 Stop</button>
         <button onclick="restartApp()">🔄 Restart</button>
     </div>
 
     <div class="log-search">
-        <input type="text" id="logSearch" placeholder="🔎 Tìm trong log..." oninput="highlightLog()" />
+        <input type="text" id="logSearch" placeholder="🔎 Search in logs..." oninput="highlightLog()" />
     </div>
 
-    <div id="log">[Log sẽ hiển thị ở đây]</div>
+    <div id="log">[Logs will appear here]</div>
 
     <script>
         let allApps = [];
@@ -94,7 +94,7 @@
                 allApps = apps;
                 renderAppList(apps);
             } catch (err) {
-                select.innerHTML = '<option disabled>⚠️ Lỗi khi tải danh sách ứng dụng</option>';
+                select.innerHTML = '<option disabled>⚠️ Error loading application list</option>';
             }
         }
 
@@ -108,7 +108,7 @@
                 opt.textContent = `${app.name} (ID: ${app.pm_id})`;
                 select.appendChild(opt);
             });
-            // Giữ lại app đang chọn nếu có
+            // Keep selected app if any
             if (currentValue) select.value = currentValue;
         }
 
@@ -131,7 +131,7 @@
 
                 badge.innerHTML = `${emoji} <span style="color:${color}">${status.toUpperCase()}</span>`;
             } else {
-                badge.innerHTML = "📄 Không xác định";
+                badge.innerHTML = "📄 Unknown";
             }
         }
 
@@ -140,17 +140,17 @@
             const appName = document.getElementById("appList").value;
 
             if (!appName) {
-                logDiv.textContent = "⚠️ Vui lòng chọn một ứng dụng.\n";
+                logDiv.textContent = "⚠️ Please select an application.\n";
                 return;
             }
 
-            logDiv.textContent = `📡 Đang tải log của "${appName}"...\n`;
+            logDiv.textContent = `📡 Loading logs for "${appName}"...\n`;
             rawLogText = "";
 
             try {
                 const res = await fetch(`/viewLogs?name=${encodeURIComponent(appName)}`);
                 if (!res.ok) {
-                    logDiv.textContent += "❌ Không thể lấy log.\n";
+                    logDiv.textContent += "❌ Cannot get logs.\n";
                     return;
                 }
 
@@ -177,11 +177,11 @@
                     }
                 }
 
-                rawLogText += "\n✅ Hoàn tất.\n";
+                rawLogText += "\n✅ Complete.\n";
                 highlightLog();
 
             } catch (err) {
-                logDiv.textContent += "❌ Lỗi: " + err.message + "\n";
+                logDiv.textContent += "❌ Error: " + err.message + "\n";
             }
         }
 
@@ -199,56 +199,71 @@
             logDiv.innerHTML = escapeHtmlExceptMark(highlighted);
         }
 
-        function escapeHtml(str) {
-            return str.replace(/[&<>"']/g, function (m) {
-                return {
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#39;'
-                }[m];
-            });
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
-        function escapeHtmlExceptMark(str) {
-            return escapeHtml(str)
-                .replace(/&lt;mark&gt;/g, '<mark>')
-                .replace(/&lt;\/mark&gt;/g, '</mark>');
+        function escapeHtmlExceptMark(text) {
+            return text
+                .replace(/&(?!lt;|gt;|amp;|quot;|#039;|mark;)/g, "&amp;")
+                .replace(/<(?!\/?mark>)/g, "&lt;")
+                .replace(/(?<!<\/?mark)>/g, "&gt;")
+                .replace(/"(?!mark>)/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
-        function escapeRegex(str) {
-            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        function escapeRegex(text) {
+            return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         async function stopApp() {
             const appName = document.getElementById("appList").value;
-            if (!appName) return alert("⚠️ Vui lòng chọn một ứng dụng.");
+            if (!appName) {
+                alert("Please select an application");
+                return;
+            }
 
-            const res = await fetch(`/pm2/stop?name=${encodeURIComponent(appName)}`);
-            const msg = await res.text();
-            alert("🛑 " + msg);
+            if (!confirm(`Are you sure you want to stop "${appName}"?`)) {
+                return;
+            }
 
-            setTimeout(async () => {
-                await loadAppList();
-                showStatus();
-            }, 1000);
+            try {
+                const res = await fetch(`/pm2/stop?name=${encodeURIComponent(appName)}`);
+                const text = await res.text();
+                alert(text);
+                loadAppList();
+            } catch (err) {
+                alert("Error stopping application: " + err.message);
+            }
         }
 
         async function restartApp() {
             const appName = document.getElementById("appList").value;
-            if (!appName) return alert("⚠️ Vui lòng chọn một ứng dụng.");
+            if (!appName) {
+                alert("Please select an application");
+                return;
+            }
 
-            const res = await fetch(`/pm2/restart?name=${encodeURIComponent(appName)}`);
-            const msg = await res.text();
-            alert("🔄 " + msg);
+            if (!confirm(`Are you sure you want to restart "${appName}"?`)) {
+                return;
+            }
 
-            setTimeout(async () => {
-                await loadAppList();
-                showStatus();
-            }, 1000);
+            try {
+                const res = await fetch(`/pm2/restart?name=${encodeURIComponent(appName)}`);
+                const text = await res.text();
+                alert(text);
+                loadAppList();
+            } catch (err) {
+                alert("Error restarting application: " + err.message);
+            }
         }
 
+        // Load app list when page loads
         loadAppList();
     </script>
 

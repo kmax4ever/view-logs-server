@@ -11,13 +11,13 @@ app.get("/", (req, res) => {
 app.get("/pm2/list", (req, res) => {
   pm2.connect((err) => {
     if (err) {
-      return res.status(500).json({ error: "Không thể kết nối PM2" });
+      return res.status(500).json({ error: "Cannot connect to PM2" });
     }
 
     pm2.list((err, list) => {
-      pm2.disconnect(); // Ngắt kết nối sau khi lấy danh sách
+      pm2.disconnect(); // Disconnect after getting the list
       if (err) {
-        return res.status(500).json({ error: "Lỗi khi lấy danh sách PM2" });
+        return res.status(500).json({ error: "Error getting PM2 list" });
       }
 
       res.json(list);
@@ -27,11 +27,11 @@ app.get("/pm2/list", (req, res) => {
 
 app.get("/viewLogs", (req, res) => {
   const appName = req.query.name;
-  if (!appName) return res.status(400).send("Thiếu tên ứng dụng");
+  if (!appName) return res.status(400).send("Missing application name");
   const logPath = "/root/.pm2/logs/" + appName + "-out.log";
 
   if (!fs.existsSync(logPath)) {
-    return res.status(404).send(`Không tìm thấy log cho app "${appName}"`);
+    return res.status(404).send(`Log not found for app "${appName}"`);
   }
 
   const tail = spawn("tail", ["-n", "100", "-f", logPath]); // <- realtime
@@ -41,39 +41,36 @@ app.get("/viewLogs", (req, res) => {
   tail.stdout.pipe(res);
 
   req.on("close", () => {
-    tail.kill(); // dọn process khi client disconnect
+    tail.kill(); // cleanup process when client disconnects
   });
 });
 
 app.get("/pm2/stop", (req, res) => {
   const name = req.query.name;
-  if (!name) return res.status(400).send("Thiếu tên ứng dụng");
+  if (!name) return res.status(400).send("Missing application name");
 
   pm2.connect(() => {
     pm2.stop(name, (err) => {
       pm2.disconnect();
-      if (err) return res.status(500).send("❌ Dừng thất bại: " + err.message);
-      res.send(`Ứng dụng "${name}" đã được dừng.`);
+      if (err) return res.status(500).send("❌ Stop failed: " + err.message);
+      res.send(`Application "${name}" has been stopped.`);
     });
   });
 });
 
 app.get("/pm2/restart", (req, res) => {
   const name = req.query.name;
-  if (!name) return res.status(400).send("Thiếu tên ứng dụng");
+  if (!name) return res.status(400).send("Missing application name");
 
   pm2.connect(() => {
     pm2.restart(name, (err) => {
       pm2.disconnect();
-      if (err)
-        return res
-          .status(500)
-          .send("❌ Khởi động lại thất bại: " + err.message);
-      res.send(`Ứng dụng "${name}" đã được khởi động lại.`);
+      if (err) return res.status(500).send("❌ Restart failed: " + err.message);
+      res.send(`Application "${name}" has been restarted.`);
     });
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`API đang chạy tại ${PORT}`);
+  console.log(`API running at ${PORT}`);
 });
