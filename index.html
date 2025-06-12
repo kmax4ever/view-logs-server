@@ -11,13 +11,27 @@
             padding: 20px;
         }
 
-        button,
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
         select,
-        input {
-            padding: 10px 20px;
+        button,
+        input[type="text"] {
+            padding: 10px 16px;
             font-size: 16px;
-            margin-right: 10px;
-            margin-bottom: 20px;
+            height: 44px;
+            box-sizing: border-box;
+        }
+
+        #status {
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0 20px;
         }
 
         #log {
@@ -43,17 +57,17 @@
 
     <h1>🚀 PM2 Log Viewer</h1>
 
-    <select id="appList">
-        <option disabled selected>🔍 Đang tải danh sách ứng dụng...</option>
-    </select>
+    <div class="toolbar">
+        <select id="appList" onchange="showStatus()">
+            <option disabled selected>🔍 Đang tải danh sách ứng dụng...</option>
+        </select>
+        <button onclick="viewLog()">▶ Xem Log</button>
+        <button onclick="stopApp()">🛑 Dừng</button>
+        <button onclick="restartApp()">🔄 Khởi động lại</button>
+        <input type="text" id="logSearch" placeholder="🔎 Tìm trong log..." oninput="highlightLog()" />
+    </div>
 
-    <button onclick="viewLog()">▶ Xem Log</button>
-    <button onclick="stopApp()">🛑 Dừng</button>
-    <button onclick="restartApp()">🔄 Khởi động lại</button>
-
-    <br />
-
-    <input type="text" id="logSearch" placeholder="🔎 Tìm trong log..." oninput="highlightLog()" />
+    <div id="status">📄 Trạng thái: chưa chọn</div>
 
     <div id="log">[Log sẽ hiển thị ở đây]</div>
 
@@ -82,6 +96,17 @@
                 opt.textContent = `${app.name} (ID: ${app.pm_id})`;
                 select.appendChild(opt);
             });
+        }
+
+        function showStatus() {
+            const appName = document.getElementById("appList").value;
+            const statusDiv = document.getElementById("status");
+            const found = allApps.find(app => app.name === appName);
+            if (found) {
+                statusDiv.textContent = `📄 Trạng thái: ${found.pm2_env.status.toUpperCase()}`;
+            } else {
+                statusDiv.textContent = "📄 Trạng thái: không xác định";
+            }
         }
 
         async function viewLog() {
@@ -177,8 +202,9 @@
             const res = await fetch(`/pm2/stop?name=${encodeURIComponent(appName)}`);
             const msg = await res.text();
             alert("🛑 " + msg);
+            await loadAppList();  // reload danh sách app
+            showStatus();         // cập nhật trạng thái hiển thị
         }
-
         async function restartApp() {
             const appName = document.getElementById("appList").value;
             if (!appName) return alert("⚠️ Vui lòng chọn một ứng dụng.");
@@ -186,6 +212,8 @@
             const res = await fetch(`/pm2/restart?name=${encodeURIComponent(appName)}`);
             const msg = await res.text();
             alert("🔄 " + msg);
+            await loadAppList();  // reload danh sách app
+            showStatus();         // cập nhật trạng thái hiển thị
         }
 
         loadAppList();
