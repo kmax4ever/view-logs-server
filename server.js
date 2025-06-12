@@ -45,6 +45,35 @@ app.get("/viewLogs", (req, res) => {
   });
 });
 
+app.get("/pm2/stop", (req, res) => {
+  const name = req.query.name;
+  if (!name) return res.status(400).send("Thiếu tên ứng dụng");
+
+  pm2.connect(() => {
+    pm2.stop(name, (err) => {
+      pm2.disconnect();
+      if (err) return res.status(500).send("❌ Dừng thất bại: " + err.message);
+      res.send(`Ứng dụng "${name}" đã được dừng.`);
+    });
+  });
+});
+
+app.get("/pm2/restart", (req, res) => {
+  const name = req.query.name;
+  if (!name) return res.status(400).send("Thiếu tên ứng dụng");
+
+  pm2.connect(() => {
+    pm2.restart(name, (err) => {
+      pm2.disconnect();
+      if (err)
+        return res
+          .status(500)
+          .send("❌ Khởi động lại thất bại: " + err.message);
+      res.send(`Ứng dụng "${name}" đã được khởi động lại.`);
+    });
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`API đang chạy tại ${PORT}`);
 });

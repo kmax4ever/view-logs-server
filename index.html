@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Deploy Log Viewer</title>
+    <title>PM2 Log Viewer</title>
     <style>
         body {
             font-family: sans-serif;
@@ -46,7 +46,10 @@
     <select id="appList">
         <option disabled selected>🔍 Đang tải danh sách ứng dụng...</option>
     </select>
+
     <button onclick="viewLog()">▶ Xem Log</button>
+    <button onclick="stopApp()">🛑 Dừng</button>
+    <button onclick="restartApp()">🔄 Khởi động lại</button>
 
     <br />
 
@@ -165,6 +168,24 @@
 
         function escapeRegex(str) {
             return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        async function stopApp() {
+            const appName = document.getElementById("appList").value;
+            if (!appName) return alert("⚠️ Vui lòng chọn một ứng dụng.");
+
+            const res = await fetch(`/pm2/stop?name=${encodeURIComponent(appName)}`);
+            const msg = await res.text();
+            alert("🛑 " + msg);
+        }
+
+        async function restartApp() {
+            const appName = document.getElementById("appList").value;
+            if (!appName) return alert("⚠️ Vui lòng chọn một ứng dụng.");
+
+            const res = await fetch(`/pm2/restart?name=${encodeURIComponent(appName)}`);
+            const msg = await res.text();
+            alert("🔄 " + msg);
         }
 
         loadAppList();
