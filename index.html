@@ -15,23 +15,32 @@
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            margin-bottom: 10px;
             gap: 10px;
+            margin-bottom: 10px;
         }
 
         select,
-        button,
-        input[type="text"] {
+        button {
             padding: 10px 16px;
             font-size: 16px;
             height: 44px;
             box-sizing: border-box;
         }
 
-        #status {
+        #statusBadge {
             font-weight: bold;
-            color: #333;
-            margin: 10px 0 20px;
+            min-width: 120px;
+        }
+
+        .log-search {
+            margin-bottom: 20px;
+        }
+
+        #logSearch {
+            width: 100%;
+            padding: 10px 16px;
+            font-size: 16px;
+            box-sizing: border-box;
         }
 
         #log {
@@ -61,13 +70,15 @@
         <select id="appList" onchange="showStatus()">
             <option disabled selected>🔍 Đang tải danh sách ứng dụng...</option>
         </select>
+        <span id="statusBadge">📄 Chưa chọn</span>
         <button onclick="viewLog()">▶ Xem Log</button>
         <button onclick="stopApp()">🛑 Dừng</button>
-        <button onclick="restartApp()">🔄 Khởi động lại</button>
-        <input type="text" id="logSearch" placeholder="🔎 Tìm trong log..." oninput="highlightLog()" />
+        <button onclick="restartApp()">🔄 Restart</button>
     </div>
 
-    <div id="status">📄 Trạng thái: chưa chọn</div>
+    <div class="log-search">
+        <input type="text" id="logSearch" placeholder="🔎 Tìm trong log..." oninput="highlightLog()" />
+    </div>
 
     <div id="log">[Log sẽ hiển thị ở đây]</div>
 
@@ -89,6 +100,7 @@
 
         function renderAppList(apps) {
             const select = document.getElementById("appList");
+            const currentValue = select.value;
             select.innerHTML = "";
             apps.forEach(app => {
                 const opt = document.createElement("option");
@@ -96,16 +108,30 @@
                 opt.textContent = `${app.name} (ID: ${app.pm_id})`;
                 select.appendChild(opt);
             });
+            // Giữ lại app đang chọn nếu có
+            if (currentValue) select.value = currentValue;
         }
 
         function showStatus() {
             const appName = document.getElementById("appList").value;
-            const statusDiv = document.getElementById("status");
+            const badge = document.getElementById("statusBadge");
             const found = allApps.find(app => app.name === appName);
+
             if (found) {
-                statusDiv.textContent = `📄 Trạng thái: ${found.pm2_env.status.toUpperCase()}`;
+                const status = found.pm2_env.status.toLowerCase();
+                let color = "#999", emoji = "🟡";
+
+                if (status === "online") {
+                    color = "green";
+                    emoji = "🟢";
+                } else if (status === "stopped" || status === "stop") {
+                    color = "red";
+                    emoji = "🔴";
+                }
+
+                badge.innerHTML = `${emoji} <span style="color:${color}">${status.toUpperCase()}</span>`;
             } else {
-                statusDiv.textContent = "📄 Trạng thái: không xác định";
+                badge.innerHTML = "📄 Không xác định";
             }
         }
 
@@ -202,9 +228,13 @@
             const res = await fetch(`/pm2/stop?name=${encodeURIComponent(appName)}`);
             const msg = await res.text();
             alert("🛑 " + msg);
-            await loadAppList();  // reload danh sách app
-            showStatus();         // cập nhật trạng thái hiển thị
+
+            setTimeout(async () => {
+                await loadAppList();
+                showStatus();
+            }, 1000);
         }
+
         async function restartApp() {
             const appName = document.getElementById("appList").value;
             if (!appName) return alert("⚠️ Vui lòng chọn một ứng dụng.");
@@ -212,8 +242,11 @@
             const res = await fetch(`/pm2/restart?name=${encodeURIComponent(appName)}`);
             const msg = await res.text();
             alert("🔄 " + msg);
-            await loadAppList();  // reload danh sách app
-            showStatus();         // cập nhật trạng thái hiển thị
+
+            setTimeout(async () => {
+                await loadAppList();
+                showStatus();
+            }, 1000);
         }
 
         loadAppList();
