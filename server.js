@@ -34,14 +34,14 @@ app.get("/viewLogs", (req, res) => {
     return res.status(404).send(`Không tìm thấy log cho app "${appName}"`);
   }
 
+  const tail = spawn("tail", ["-n", "100", "-f", logPath]); // <- realtime
+
   res.setHeader("Content-Type", "text/plain");
 
-  const stream = fs.createReadStream(logPath, { encoding: "utf8" });
+  tail.stdout.pipe(res);
 
-  stream.pipe(res);
-
-  stream.on("error", () => {
-    res.status(500).end("Lỗi khi đọc log");
+  req.on("close", () => {
+    tail.kill(); // dọn process khi client disconnect
   });
 });
 
