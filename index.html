@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Deploy Log Viewer</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f0f0f0;
+            padding: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 20px;
+        }
+
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🚀 Deploy Dashboard</h1>
+    <button onclick="viewLog()">▶ Bắt đầu Deploy</button>
+
+    <div id="log">[Log sẽ hiển thị ở đây]</div>
+
+    <script>
+        async function streamLog(url) {
+            const logDiv = document.getElementById("log");
+            const response = await fetch(url);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                logDiv.textContent += decoder.decode(value);
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }
+        }
+
+        async function viewLog() {
+            const logDiv = document.getElementById("log");
+            logDiv.textContent = "📡 Gửi yêu cầu deploy...\n";
+
+            try {
+                const res = await fetch("/viewLogs");
+                if (!res.ok) {
+                    logDiv.textContent += "❌ Deploy bị từ chối hoặc đang chạy.\n";
+                    return;
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    logDiv.textContent += decoder.decode(value);
+                    logDiv.scrollTop = logDiv.scrollHeight;
+                }
+
+                logDiv.textContent += "\n✅ Quá trình hoàn tất.\n";
+
+            } catch (err) {
+                logDiv.textContent += "❌ Lỗi: " + err.message + "\n";
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>
