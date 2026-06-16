@@ -2,7 +2,7 @@
 echo ">>> Deploy script started at $(date)"
 cd && cd xeleb-agent|| exit
 echo ">>> pull last develop at $(date)"
-git pull
+#git pull
 docker stop ai-agent || true
 docker rm ai-agent || true
 docker build -t ai-agent .
