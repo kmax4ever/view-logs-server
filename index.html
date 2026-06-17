@@ -86,6 +86,10 @@
     <script>
         let allApps = [];
         let rawLogText = "";
+        let currentController = null;
+        let currentReader = null;
+        let scrollListenerAttached = false;
+        let userScrolled = false;
 
         async function loadAppList() {
             const select = document.getElementById("appList");
@@ -145,24 +149,45 @@
                 return;
             }
 
-            logDiv.textContent = `📡 Loading logs for "${appName}"...\n`;
+            // Abort any previous in-flight stream so old log data doesn't bleed into the new one
+            if (currentController) {
+                currentController.abort();
+            }
+            if (currentReader) {
+                try { await currentReader.cancel(); } catch (e) { }
+            }
+
+            // Full reset (like F5)
             rawLogText = "";
+            userScrolled = false;
+            logDiv.innerHTML = "";
+            logDiv.textContent = `📡 Loading logs for "${appName}"...\n`;
 
-            try {
-                const res = await fetch(`/viewLogs?name=${encodeURIComponent(appName)}`);
-                if (!res.ok) {
-                    logDiv.textContent += "❌ Cannot get logs.\n";
-                    return;
-                }
-
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-
-                let userScrolled = false;
+            // Attach scroll listener only once to avoid duplicate handlers
+            if (!scrollListenerAttached) {
                 logDiv.addEventListener('scroll', () => {
                     const threshold = 50;
                     userScrolled = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight > threshold;
                 });
+                scrollListenerAttached = true;
+            }
+
+            const controller = new AbortController();
+            currentController = controller;
+
+            try {
+                const res = await fetch(`/viewLogs?name=${encodeURIComponent(appName)}`, { signal: controller.signal });
+                if (!res.ok) {
+                    logDiv.textContent = "❌ Cannot get logs.\n";
+                    return;
+                }
+
+                const reader = res.body.getReader();
+                currentReader = reader;
+                const decoder = new TextDecoder();
+
+                // Clear the "Loading..." placeholder once the stream actually starts
+                rawLogText = "";
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -182,7 +207,13 @@
                 highlightLog();
 
             } catch (err) {
-                logDiv.textContent += "❌ Error: " + err.message + "\n";
+                if (err.name === 'AbortError') return; // expected when switching apps
+                logDiv.textContent = "❌ Error: " + err.message + "\n";
+            } finally {
+                if (currentController === controller) {
+                    currentController = null;
+                    currentReader = null;
+                }
             }
         }
 
